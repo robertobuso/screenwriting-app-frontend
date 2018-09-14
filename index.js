@@ -1,4 +1,8 @@
 document.addEventListener("DOMContentLoaded", ()=> {
+  //Declare Variables for CurrentIdea and CurrentStructure
+  let currentIdea
+  let currentStructure = []
+  let currentIndex
 
 //general queries (main document containers)
 let formContainer = document.getElementById('form_container')
@@ -35,6 +39,7 @@ projectIdeaForm.addEventListener("submit", submitProjectIdea)
 let navbar = document.getElementById('navbar_items')
 navbar.addEventListener("click", viewAllProjects)
 navbar.addEventListener("click", createProject)
+navbar.addEventListener("click", searchByAttribute)
 
 
 //GET dropdown for exisiting project titles
@@ -74,7 +79,7 @@ function submitNewProject(event) {
 
 function submitProjectIdea(event) {
   event.preventDefault()
-  console.log(ideaAct.value)
+
   fetch("http://localhost:3000/api/v1/ideas", {
     method: "POST",
     headers: {
@@ -101,11 +106,20 @@ function submitProjectIdea(event) {
   .then(newIdea => {
     currentIdea = newIdea
     let x = currentStructure.length + 1
-    currentStructure.push({x: newIdea["id"]})
-    debugger
+    currentStructure.push({[x]: newIdea["id"]})
     showSingleIdea(newIdea)
   projectIdeaForm.reset()
-  //WE NEED TO SAVE/POST NEW STRUCTURE HERE
+
+  fetch("http://localhost:3000/api/v1/structures",
+    {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json"
+      },
+      body: JSON.stringify({ order:currentStructure,  project_id: currentIdea.project_id})
+    }
+  )
+  .then(r => r.json())
   })
 }
 
@@ -115,6 +129,7 @@ function viewAllProjects(event) {
     formContainer.innerHTML = ""
     allProjectDiv.innerHTML = ""
     allIdeasDiv.innerHTML = ""
+
     fetch("http://localhost:3000/api/v1/projects")
       .then(rep => rep.json())
       .then(function (projects) {
@@ -177,6 +192,8 @@ function allIdeasPage(event) {
           `
           ideaCard.append(ideaBoxBack)
           ideaContainer.append(ideaCard)
+          currentIdea = idea
+          showSingleIdea(currentIdea)
           return allIdeasDiv.append(ideaContainer)
           // return allIdeasDiv.append(ideaBox)
         })
@@ -212,10 +229,6 @@ function createProject(event) {
     newProjectProtagonist.value=""
   }
 }
-
-//Declare Variables for CurrentIdea and CurrentStructure
-let currentIdea
-let currentStructure = []
 
 //Activate Edit button
 let editButton = document.getElementById('edit-btn')
@@ -274,7 +287,6 @@ saveStructureLink.addEventListener('click', event => saveStructure(event))
 
 function saveStructure(event) {
   const newStructureTitle = prompt("Please provide a name for this structure.")
-
   fetch("http://localhost:3000/api/v1/structures",
     {
       method: "POST",
@@ -285,17 +297,85 @@ function saveStructure(event) {
     }
   )
   .then(r => r.json())
-  .then(r => console.log(r))
+  .then(r => currentStructure = r.order)
+
+  console.log(currentStructure)
 }
 
 function findStructure(event) {
   fetch("http://localhost:3000/api/v1/projects/" + event.target.dataset.id)
     .then(rep => rep.json())
     .then(function (project) {
-      currentStructure = project.structures[project.structures.length - 1].order
-      currentIdea = project.ideas[currentStructure.length - 1]
+      if (project.structures.length > 0) {
+        currentStructure =
+        project.structures[(project.structures.length - 1)].order
+        currentIdea = project.ideas[currentStructure.length - 1]
+      } else {
+        currentStructure =[]
+      }
     })
 }
+
+//Previous Button
+
+let previousButton = document.querySelector('.previous-btn')
+previousButton.addEventListener('click', event => previousIdea())
+
+function previousIdea() {
+  if (currentStructure.length <= 1) {
+    alert("This is the first idea in the current structure.")
+  } else {
+    showSingleIdea(currentIdea)
+  }
+}
+
+// currentIndex = currentStructure.findIndex(isLikeCurrent)
+// function isLikeCurrent(element) {
+// for (const key in currentStructure) {
+//     if currentStructure[key] === element
+//   element === currentIdea.id
+//   }
+
+//Search Ideas by Attribute
+
+function searchByAttribute(event) {
+  if (event.target.className === "search") {
+    formContainer.innerHTML = ""
+    allProjectDiv.innerHTML = ""
+    allIdeasDiv.innerHTML = ""
+
+    let searchBy = event.target.id
+
+    fetch("http://localhost:3000/api/v1/structures",
+      {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json"
+        },
+        body: JSON.stringify({search: true, search_by: searchBy, saved: true, order: currentStructure, project_id: currentIdea.project_id})
+      }
+    )
+    .then(r => r.json())
+    .then(ideas => showByAttribute(ideas))
+  }
+}
+
+function showByAttribute(ideas) {
+  console.log(ideas)
+  debugger
+  ideas.forEach(function (idea) {
+    let ideaContainer = document.createElement("div")
+    ideaContainer.className= "idea_container"
+    let ideaCard = document.createElement("div")
+    ideaCard.className = "idea_card"
+    let ideaFront = document.createElement("div")
+    ideaFront.className = "idea_front"
+    let ideaBack = document.createElement("div")
+    ideaBack.className = "idea_back"
+
+  })
+}
+
 
 
 }) //dom event listener
